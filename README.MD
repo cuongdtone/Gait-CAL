@@ -1,6 +1,6 @@
 # Gait CAL
 
-<img  src="src/Copy (1) of flowchart 2.png" alt="Trulli" style="width:600px;">
+<img  src="src/gaitcal.png" alt="Trulli" style="width:600px;">
 
 Out method uses a modified architecture. As show on flowchart, the walking clip are processed by 2 separate streams. Firstly, we call AL block, contain the encoder and BiLSTM to extract gait details. Secondly, the GE block create GEI by sum of all frames and encode it with MobileNet, it describe the overall gait . Two vector are joined and we call it Gait Embedding.    
 ***
