@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# @Organization  : TMT
-# @Author        : Cuong Tran
+# @Organization  : DUT
+# @Author        : Cuong Tran, Yen Le
 # @Time          : 10/24/2022
 import torch
 from torch import nn
