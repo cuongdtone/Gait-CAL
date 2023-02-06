@@ -23,7 +23,7 @@ Accuracy and Confusion Matrix (EER): ```evaluate_gait.ipynb```
 
 
 ## Author
-Cuong Tran, Yen Le, Hanh Tran   
+
 Da Nang University of Science and Technology
 
 ## Contact
