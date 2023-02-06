@@ -406,7 +406,7 @@ def mobileone(num_classes: int = 1000, inference_mode: bool = False,
 
 
 if __name__ == '__main__':
-    model = mobileone(128)
+    model = mobileone(128, variant='s1')
 
     x = torch.rand(1, 1, 112, 112)
     y = model(x)
