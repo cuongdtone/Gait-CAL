@@ -30,96 +30,107 @@ def calc_euclidean(feat1, feat2):
 
 
 def evaluation(walking_angle, walking_conditions):
-    """ GET DB """
-    subjects = os.listdir(db_root)
-    db_embedding = []
-    db_targets = []
-    # print(subjects)
-    for subject in subjects:
-        subject_angle = os.path.join(db_root, subject, walking_angle)
-        # print(subject_angle)
-        if os.path.exists(subject_angle):
-            embedding_nm14 = [os.path.join(subject_angle, em) for em in os.listdir(subject_angle)]
-            for emb in embedding_nm14:
-                with open(emb, 'rb') as handle:
+    all_angles = ['000', '018', '036', '054', '072', '090', '108', '126', '144', '162', '180']
+
+    accs = []
+    
+    for a in all_angles:
+        print(a, walking_angle)
+        """ GET DB """
+        if walking_angle == a:  # pass same angle attach and db
+            continue
+            
+        subjects = os.listdir(db_root)
+        db_embedding = []
+        db_targets = []
+        # print(subjects)
+        for subject in subjects:
+            subject_angle = os.path.join(db_root, subject, a)
+            # print(subject_angle)
+            if os.path.exists(subject_angle):
+                embedding_nm14 = [os.path.join(subject_angle, em) for em in os.listdir(subject_angle)]
+                for emb in embedding_nm14:
+                    with open(emb, 'rb') as handle:
+                        data = pickle.load(handle)
+                    # print(data.shape, subjec)
+                    db_embedding.append(data)
+                    db_targets.append(subject)
+
+        # print(len(db_targets))
+        # print(max([int(i) for i in db_targets]))
+        # print(len(set(db_targets)))
+
+        cer_true = []
+        cer_pred = []
+        truth = []
+        pred = []
+        false = 0
+        true = 0
+        """ GET ATTACH """
+        subjects = os.listdir(attach_root)
+        for subject in subjects:
+            for walking_condition in walking_conditions:
+                subject_condition = os.path.join(attach_root, subject, walking_condition)
+                # print(subject_condition)
+                data_attach = os.path.join(subject_condition, walking_angle)
+                # print(data_attach)
+
+                # print(data.keys(), subject)
+
+                ################################# GET FEAT FOR ATTACH SUBJECT
+                if not os.path.exists(data_attach + '.pkl'):
+                    continue
+                with open(data_attach + '.pkl', 'rb') as handle:
                     data = pickle.load(handle)
-                # print(data.shape, subjec)
-                db_embedding.append(data)
-                db_targets.append(subject)
+                a_v = data['ae_feat']
+                a_gei = np.expand_dims(data['gei'], axis=0) / 40
+                a_v = torch.from_numpy(a_v)
+                a_gei = torch.from_numpy(a_gei).float()
+                a_v = a_v.unsqueeze(0).to(device).float()
+                a_gei = a_gei.unsqueeze(0).to(device).float()
+                with torch.no_grad():
+                    attach_feat = model(a_v, a_gei)
+                ####################################
 
-    # print(len(db_targets))
-    # print(max([int(i) for i in db_targets]))
-    # print(len(set(db_targets)))
+                ################################## ATTACH TO GALLERY
+                onehot_true = [0] * (int(max([int(i) for i in db_targets])) + 1)
+                onehot_true[int(subject)] = 1
+                onehot_pred = [0] * (int(max([int(i) for i in db_targets])) + 1)
 
-    cer_true = []
-    cer_pred = []
-    truth = []
-    pred = []
-    false = 0
-    true = 0
-    """ GET ATTACH """
-    subjects = os.listdir(attach_root)
-    for subject in subjects:
-        for walking_condition in walking_conditions:
-            subject_condition = os.path.join(attach_root, subject, walking_condition)
-            # print(subject_condition)
-            data_attach = os.path.join(subject_condition, walking_angle)
-            # print(data_attach)
+                max_d = -1
+                predict_subject = -1
+                for db_target, db_embed in zip(db_targets, db_embedding):
+                    d = calc_euclidean(attach_feat, db_embed)
+                    # print(int(db_target) - 63)
+                    if d.item() > onehot_pred[int(db_target)]:
+                        onehot_pred[int(db_target)] = d.item()
 
-            # print(data.keys(), subject)
+                    if d.item() > max_d:
+                        predict_subject = int(db_target)
+                        max_d = d.item()
 
-            ################################# GET FEAT FOR ATTACH SUBJECT
-            if not os.path.exists(data_attach + '.pkl'):
-                continue
-            with open(data_attach + '.pkl', 'rb') as handle:
-                data = pickle.load(handle)
-            a_v = data['ae_feat']
-            a_gei = np.expand_dims(data['gei'], axis=0) / 40
-            a_v = torch.from_numpy(a_v)
-            a_gei = torch.from_numpy(a_gei).float()
-            a_v = a_v.unsqueeze(0).to(device).float()
-            a_gei = a_gei.unsqueeze(0).to(device).float()
-            with torch.no_grad():
-                attach_feat = model(a_v, a_gei)
-            ####################################
+                if predict_subject == int(subject):
+                    true += 1
+                else:
+                    false += 1
+                truth.append(int(subject))
+                pred.append(predict_subject)
 
-            ################################## ATTACH TO GALLERY
-            onehot_true = [0] * (int(max([int(i) for i in db_targets])) + 1)
-            onehot_true[int(subject)] = 1
-            onehot_pred = [0] * (int(max([int(i) for i in db_targets])) + 1)
+                cer_true.append(onehot_true[63:])
+                cer_pred.append(onehot_pred[63:])
+                # print('hera')
+                # print(onehot_true[63:])
+                # print(onehot_pred[63:])
+                # print(onehot_true.index(max(onehot_true)), onehot_pred.index(max(onehot_pred)))
+            #     break
+            # break
+        ''' CALCULATE ACCURACY '''
 
-            max_d = -1
-            predict_subject = -1
-            for db_target, db_embed in zip(db_targets, db_embedding):
-                d = calc_euclidean(attach_feat, db_embed)
-                # print(int(db_target) - 63)
-                if d.item() > onehot_pred[int(db_target)]:
-                    onehot_pred[int(db_target)] = d.item()
+        acc = accuracy_score(truth, pred)
+        accs.append(acc)
 
-                if d.item() > max_d:
-                    predict_subject = int(db_target)
-                    max_d = d.item()
-
-            if predict_subject == int(subject):
-                true += 1
-            else:
-                false += 1
-            truth.append(int(subject))
-            pred.append(predict_subject)
-
-            cer_true.append(onehot_true[63:])
-            cer_pred.append(onehot_pred[63:])
-            # print('hera')
-            # print(onehot_true[63:])
-            # print(onehot_pred[63:])
-            # print(onehot_true.index(max(onehot_true)), onehot_pred.index(max(onehot_pred)))
-        #     break
-        # break
-    ''' CALCULATE ACCURACY '''
-
-    acc = accuracy_score(truth, pred)
-    # print(acc)
-    return acc
+    print(accs)
+    return sum(accs)/len(accs)
 
 
 if __name__ == '__main__':
@@ -129,7 +140,7 @@ if __name__ == '__main__':
 
     import xlsxwriter
 
-    workbook = xlsxwriter.Workbook('result.xlsx')
+    workbook = xlsxwriter.Workbook('demo.xlsx')
     worksheet = workbook.add_worksheet()
 
     # acc = evaluation('000', ['nm-06', 'nm-05'])
